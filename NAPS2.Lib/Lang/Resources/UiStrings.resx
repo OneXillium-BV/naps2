@@ -483,6 +483,9 @@
   <data name="MakePdfsSearchable" xml:space="preserve">
     <value>Make PDFs searchable using OCR</value>
   </data>
+  <data name="FlattenPdfPagesBeforeOcr" xml:space="preserve">
+    <value>Flatten PDF pages before OCR</value>
+  </data>
   <data name="OcrLanguageLabel" xml:space="preserve">
     <value>OCR language:</value>
   </data>

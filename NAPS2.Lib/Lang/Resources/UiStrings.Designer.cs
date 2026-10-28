@@ -776,6 +776,12 @@ namespace NAPS2.Lang.Resources {
                 return ResourceManager.GetString("MakePdfsSearchable", resourceCulture);
             }
         }
+
+        internal static string FlattenPdfPagesBeforeOcr {
+            get {
+                return ResourceManager.GetString("FlattenPdfPagesBeforeOcr", resourceCulture);
+            }
+        }
         
         internal static string OcrLanguageLabel {
             get {

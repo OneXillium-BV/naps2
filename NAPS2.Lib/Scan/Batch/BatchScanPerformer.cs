@@ -293,7 +293,10 @@ public class BatchScanPerformer : IBatchScanPerformer
                         _config.Get(c => c.PdfSettings.Metadata).Substitute(_nameManager,
                             NameContext.FromSaveParams(saveParams)),
                         _config.Get(c => c.PdfSettings.Encryption),
-                        _config.Get(c => c.PdfSettings.Compat));
+                        _config.Get(c => c.PdfSettings.Compat))
+                    {
+                        FlattenPdfPagesBeforeOcr = _config.Get(c => c.PdfSettings.FlattenPdfPagesBeforeOcr)
+                    };
                     await _pdfExporter.Export(reservation.Name, images, exportParams, _config.DefaultOcrParams(),
                         _cancelToken);
                 }
