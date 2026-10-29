@@ -2,6 +2,7 @@
 using System.Collections.Immutable;
 using System.Threading;
 using Microsoft.Extensions.Logging;
+using NAPS2.Remoting.Worker;
 using NAPS2.Scan.Exceptions;
 using NAPS2.Unmanaged;
 using NTwain;
@@ -86,7 +87,7 @@ internal class LocalTwainController : ITwainController
         {
             TwainDsmSetup.Run();
         }
-        return Task.Run(() =>
+        return Task.Run(async () =>
         {
             var caps = InternalGetCaps(options);
             if (options.TwainOptions.Dsm != TwainDsm.Old && caps == null)
@@ -96,6 +97,37 @@ internal class LocalTwainController : ITwainController
                 caps = InternalGetCaps(options);
             }
 
+#if TWAIN_PROFILE_CAPTURE_NATIVE_UI
+            if (options.TwainOptions.CaptureProfileSettings && caps != null)
+            {
+                var previousUseNativeUi = options.UseNativeUI;
+                options.UseNativeUI = true;
+                try
+                {
+                    var runner = new TwainScanRunner(_logger, TwainAppId, options.TwainOptions.Dsm, options,
+                        CancellationToken.None, new NullTwainEvents());
+                    var captured = await runner.RunForSettings();
+                    return new ScanCaps
+                    {
+                        MetadataCaps = caps.MetadataCaps,
+                        PaperSourceCaps = caps.PaperSourceCaps,
+                        FlatbedCaps = caps.FlatbedCaps,
+                        FeederCaps = caps.FeederCaps,
+                        DuplexCaps = caps.DuplexCaps,
+                        TwainSettings = captured.Count > 0 ? captured : caps.TwainSettings
+                    };
+                }
+                finally
+                {
+                    options.UseNativeUI = previousUseNativeUi;
+                }
+            }
+#endif
+
+            if (caps == null)
+            {
+                throw new InvalidOperationException("Could not retrieve TWAIN capabilities.");
+            }
             return caps;
         });
     }
@@ -120,6 +152,9 @@ internal class LocalTwainController : ITwainController
                 }
                 try
                 {
+                    var twainSettings = options.TwainOptions.CaptureProfileSettings
+                        ? TwainProfileSettings.Capture(ds, _logger)
+                        : null;
                     var feederCap = ds.Capabilities.CapFeederEnabled;
 
                     feederCap.SetValue(BoolType.False);
@@ -152,7 +187,8 @@ internal class LocalTwainController : ITwainController
                         },
                         FlatbedCaps = flatbedCaps,
                         FeederCaps = feederCaps,
-                        DuplexCaps = supportsDuplex ? feederCaps : null
+                        DuplexCaps = supportsDuplex ? feederCaps : null,
+                        TwainSettings = twainSettings
                     };
                 }
                 finally
@@ -240,6 +276,14 @@ internal class LocalTwainController : ITwainController
     {
         var runner = new TwainScanRunner(_logger, TwainAppId, dsm, options, cancelToken, twainEvents);
         await runner.Run();
+    }
+
+    private sealed class NullTwainEvents : ITwainEvents
+    {
+        public void PageStart(TwainPageStart pageStart) { }
+        public void NativeImageTransferred(TwainNativeImage nativeImage) { }
+        public void MemoryBufferTransferred(TwainMemoryBuffer memoryBuffer) { }
+        public void TransferCanceled(TwainTransferCanceled transferCanceled) { }
     }
 }
 #endif

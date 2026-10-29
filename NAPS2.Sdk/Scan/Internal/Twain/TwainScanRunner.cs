@@ -25,6 +25,8 @@ internal class TwainScanRunner
     private readonly TwainSession _session;
     private readonly TaskCompletionSource<bool> _tcs;
     private readonly TaskCompletionSource<bool> _sourceDisabledTcs;
+    private readonly TaskCompletionSource<List<TwainCapabilitySetting>> _settingsTcs;
+    private bool _captureSettings;
     private DataSource? _source;
 
     public TwainScanRunner(ILogger logger, TWIdentity twainAppId, TwainDsm dsm, ScanOptions options,
@@ -48,12 +50,21 @@ internal class TwainScanRunner
         _session.StateChanged += StateChanged;
         _tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         _sourceDisabledTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _settingsTcs = new TaskCompletionSource<List<TwainCapabilitySetting>>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
     public Task Run()
     {
         _handleManager.Invoker.InvokeDispatch(Init);
         return _tcs.Task;
+    }
+
+    public Task<List<TwainCapabilitySetting>> RunForSettings()
+    {
+        _captureSettings = true;
+        _handleManager.Invoker.InvokeDispatch(Init);
+        return _settingsTcs.Task;
     }
 
     private void Init()
@@ -136,14 +147,20 @@ internal class TwainScanRunner
         // If we're in state 4 or lower, this will just clean up the source/session.
         UnloadTwain();
         _tcs.TrySetException(ex);
+        _settingsTcs.TrySetException(ex);
     }
 
     private void FinishWithCompletion()
     {
         _logger.LogDebug("NAPS2.TW - Finishing with completion");
+        var settings = _captureSettings ? TwainProfileSettings.Capture(_source!, _logger) : null;
         // At this point we should be in state 4 and this will clean up the source/session.
         UnloadTwain();
         _tcs.TrySetResult(true);
+        if (settings != null)
+        {
+            _settingsTcs.TrySetResult(settings);
+        }
     }
 
     private void UnloadTwain()
@@ -186,7 +203,10 @@ internal class TwainScanRunner
     private void TransferCanceled(object? sender, TransferCanceledEventArgs e)
     {
         _logger.LogDebug("NAPS2.TW - TransferCanceled");
-        _twainEvents.TransferCanceled(new TwainTransferCanceled());
+        if (!_captureSettings)
+        {
+            _twainEvents.TransferCanceled(new TwainTransferCanceled());
+        }
     }
 
     private void TransferError(object? sender, TransferErrorEventArgs e)
@@ -219,6 +239,7 @@ internal class TwainScanRunner
     private void DataTransferred(object? sender, DataTransferredEventArgs e)
     {
         _logger.LogDebug("NAPS2.TW - DataTransferred");
+        if (_captureSettings) return;
         try
         {
             if (_options.TwainOptions.TransferMode == TwainTransferMode.Memory && e.MemoryData == null)
@@ -246,6 +267,11 @@ internal class TwainScanRunner
     private void TransferReady(object? sender, TransferReadyEventArgs e)
     {
         _logger.LogDebug("NAPS2.TW - TransferReady");
+        if (_captureSettings)
+        {
+            e.CancelAll = true;
+            return;
+        }
         try
         {
             var pageStart = new TwainPageStart();
@@ -324,6 +350,7 @@ internal class TwainScanRunner
 
         if (_options.UseNativeUI)
         {
+            TwainProfileSettings.Apply(source, _options.TwainOptions.ProfileSettings, _logger);
             return;
         }
 
@@ -417,6 +444,8 @@ internal class TwainScanRunner
         // Resolution
         SetClosest(source.Capabilities.ICapXResolution, _options.Dpi);
         SetClosest(source.Capabilities.ICapYResolution, _options.Dpi);
+
+        TwainProfileSettings.Apply(source, _options.TwainOptions.ProfileSettings, _logger);
     }
 
     private void SetClosest(ICapWrapper<TWFix32> cap, int value)

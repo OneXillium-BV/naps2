@@ -14,5 +14,9 @@ public interface IScanPerformer
 
     Task<ScanCaps> GetCaps(ScanProfile scanProfile, CancellationToken cancelToken = default);
 
+    Task<ScanCaps> CaptureTwainSettings(ScanProfile scanProfile, CancellationToken cancelToken = default);
+
+    Task<ScanCaps> CaptureWiaSettings(ScanProfile scanProfile, CancellationToken cancelToken = default);
+
     IAsyncEnumerable<ProcessedImage> PerformScan(ScanProfile scanProfile, ScanParams scanParams, IntPtr dialogParent = default, CancellationToken cancelToken = default);
 }

@@ -8,4 +8,8 @@ public class WiaOptions
     public WiaApiVersion WiaApiVersion { get; set; }
 
     public bool OffsetWidth { get; set; }
+
+    public bool CaptureProfileSettings { get; set; }
+
+    public WiaProfileSettings? ProfileSettings { get; set; }
 }

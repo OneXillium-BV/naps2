@@ -644,6 +644,48 @@ namespace NAPS2.Lang.Resources {
                 return ResourceManager.GetString("UseNativeUi", resourceCulture);
             }
         }
+
+        internal static string ReadTwainSettings {
+            get {
+                return ResourceManager.GetString("ReadTwainSettings", resourceCulture);
+            }
+        }
+
+        internal static string ReadWiaSettings {
+            get {
+                return ResourceManager.GetString("ReadWiaSettings", resourceCulture);
+            }
+        }
+
+        internal static string TwainSettingsCaptureWarning {
+            get {
+                return ResourceManager.GetString("TwainSettingsCaptureWarning", resourceCulture);
+            }
+        }
+
+        internal static string TwainSettingsNotAvailable {
+            get {
+                return ResourceManager.GetString("TwainSettingsNotAvailable", resourceCulture);
+            }
+        }
+
+        internal static string TwainSettingsCaptured {
+            get {
+                return ResourceManager.GetString("TwainSettingsCaptured", resourceCulture);
+            }
+        }
+
+        internal static string WiaSettingsNotAvailable {
+            get {
+                return ResourceManager.GetString("WiaSettingsNotAvailable", resourceCulture);
+            }
+        }
+
+        internal static string WiaSettingsCaptured {
+            get {
+                return ResourceManager.GetString("WiaSettingsCaptured", resourceCulture);
+            }
+        }
         
         internal static string PaperSourceLabel {
             get {

@@ -14,6 +14,7 @@ public class EditProfileForm : EtoDialogBase
     private readonly ErrorOutput _errorOutput;
     private readonly ProfileNameTracker _profileNameTracker;
     private readonly DeviceCapsCache _deviceCapsCache;
+    private readonly IScanPerformer _scanPerformer;
 
     private readonly TextBox _displayName = new();
     private readonly DeviceSelectorWidget _deviceSelectorWidget;
@@ -29,6 +30,7 @@ public class EditProfileForm : EtoDialogBase
     private readonly CheckBox _enableAutoSave = new() { Text = UiStrings.EnableAutoSave };
     private readonly LinkButton _autoSaveSettings = C.Link(UiStrings.AutoSaveSettings);
     private readonly Button _advanced = new() { Text = UiStrings.Advanced };
+    private readonly Button _captureDeviceSettings = new() { Text = UiStrings.ReadTwainSettings };
     private readonly SliderWithTextBox _brightnessSlider = new();
     private readonly SliderWithTextBox _contrastSlider = new();
 
@@ -48,6 +50,7 @@ public class EditProfileForm : EtoDialogBase
         _errorOutput = errorOutput;
         _profileNameTracker = profileNameTracker;
         _deviceCapsCache = deviceCapsCache;
+        _scanPerformer = scanPerformer;
         _deviceSelectorWidget = new(scanPerformer, deviceCapsCache, iconProvider, this)
         {
             ProfileFunc = GetUpdatedScanProfile,
@@ -66,6 +69,7 @@ public class EditProfileForm : EtoDialogBase
         _enableAutoSave.CheckedChanged += EnableAutoSave_CheckedChanged;
         _autoSaveSettings.Click += AutoSaveSettings_LinkClicked;
         _advanced.Click += Advanced_Click;
+        _captureDeviceSettings.Click += CaptureDeviceSettings_Click;
     }
 
     public void SetDevice(ScanDevice device)
@@ -82,6 +86,12 @@ public class EditProfileForm : EtoDialogBase
         }
         DeviceDriver = e.NewChoice.Driver;
         IconUri = e.NewChoice.Device?.IconUri;
+        if (e.PreviousChoice.Device?.ID != e.NewChoice.Device?.ID ||
+            e.PreviousChoice.Driver != e.NewChoice.Driver)
+        {
+            ScanProfile.TwainSettings = null;
+            ScanProfile.WiaSettings = null;
+        }
 
         UpdateCaps();
         UpdateEnabledControls();
@@ -101,7 +111,8 @@ public class EditProfileForm : EtoDialogBase
             PlatformCompat.System.IsWiaDriverSupported || PlatformCompat.System.IsTwainDriverSupported
                 ? L.Row(
                     _predefinedSettings,
-                    _nativeUi
+                    _nativeUi,
+                    _captureDeviceSettings
                 ).Visible(_nativeUiVis)
                 : C.None(),
             C.Spacer(),
@@ -402,6 +413,8 @@ public class EditProfileForm : EtoDialogBase
             FlipDuplexedPages = ScanProfile.FlipDuplexedPages,
             TwainImpl = ScanProfile.TwainImpl,
             TwainProgress = ScanProfile.TwainProgress,
+            TwainSettings = ScanProfile.TwainSettings,
+            WiaSettings = ScanProfile.WiaSettings,
             AppleImpl = ScanProfile.AppleImpl,
 
             ExcludeBlankPages = ScanProfile.ExcludeBlankPages,
@@ -439,6 +452,13 @@ public class EditProfileForm : EtoDialogBase
             _deviceSelectorWidget.Enabled = !deviceLocked;
             _predefinedSettings.Enabled = _nativeUi.Enabled = !locked;
             _nativeUiVis.IsVisible = _deviceSelectorWidget.Choice.Device == null || canUseNativeUi;
+            bool canCaptureSettings = DeviceDriver is Driver.Twain or Driver.Wia;
+            _captureDeviceSettings.Text = DeviceDriver == Driver.Wia
+                ? UiStrings.ReadWiaSettings
+                : UiStrings.ReadTwainSettings;
+            _captureDeviceSettings.Visible = canCaptureSettings;
+            _captureDeviceSettings.Enabled = !locked && _deviceSelectorWidget.Choice.Device != null &&
+                                             canCaptureSettings;
 
             _paperSource.Enabled = settingsEnabled;
             _resolution.Enabled = settingsEnabled;
@@ -476,6 +496,118 @@ public class EditProfileForm : EtoDialogBase
         ScanProfile.DriverName = DeviceDriver.ToString().ToLowerInvariant();
         form.ScanProfile = ScanProfile;
         form.ShowModal();
+    }
+
+    private async void CaptureDeviceSettings_Click(object? sender, EventArgs e)
+    {
+        if (DeviceDriver is not (Driver.Twain or Driver.Wia) || _deviceSelectorWidget.Choice.Device == null) return;
+#if TWAIN_PROFILE_CAPTURE_NATIVE_UI
+        if (DeviceDriver == Driver.Twain &&
+            MessageBox.Show(this, UiStrings.TwainSettingsCaptureWarning, UiStrings.ReadTwainSettings,
+                MessageBoxButtons.YesNo, MessageBoxType.Warning) != DialogResult.Yes)
+        {
+            return;
+        }
+#endif
+
+        _captureDeviceSettings.Enabled = false;
+        try
+        {
+            if (DeviceDriver == Driver.Twain)
+            {
+                var caps = await _scanPerformer.CaptureTwainSettings(GetUpdatedScanProfile());
+                if (caps.TwainSettings is not { Count: > 0 } settings)
+                {
+                    _errorOutput.DisplayError(UiStrings.TwainSettingsNotAvailable);
+                    return;
+                }
+
+                ScanProfile.TwainSettings = settings;
+                ApplyTwainSettingsToProfile(settings);
+                MessageBox.Show(this, string.Format(UiStrings.TwainSettingsCaptured, settings.Count),
+                    UiStrings.ReadTwainSettings, MessageBoxButtons.OK, MessageBoxType.Information);
+            }
+            else
+            {
+                var caps = await _scanPerformer.CaptureWiaSettings(GetUpdatedScanProfile());
+                if (caps.WiaSettings is not { Count: > 0 } settings)
+                {
+                    _errorOutput.DisplayError(UiStrings.WiaSettingsNotAvailable);
+                    return;
+                }
+
+                ScanProfile.WiaSettings = settings;
+                MessageBox.Show(this, string.Format(UiStrings.WiaSettingsCaptured, settings.Count),
+                    UiStrings.ReadWiaSettings, MessageBoxButtons.OK, MessageBoxType.Information);
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorOutput.DisplayError(ex.Message, ex);
+        }
+        finally
+        {
+            UpdateEnabledControls();
+        }
+    }
+
+    private void ApplyTwainSettingsToProfile(List<TwainCapabilitySetting> settings)
+    {
+        var values = settings.ToDictionary(x => x.CapabilityId, x => x);
+        if (values.TryGetValue(0x1118, out var xResolution) &&
+            TryGetFixedValue(xResolution, out var dpi))
+        {
+            _resolution.SetDpi((int) Math.Round(dpi));
+        }
+
+        if (values.TryGetValue(0x112B, out var bitDepth) &&
+            ushort.TryParse(bitDepth.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var depth))
+        {
+            _bitDepth.SelectedItem = depth switch
+            {
+                1 => ScanBitDepth.BlackWhite,
+                8 => ScanBitDepth.Grayscale,
+                24 => ScanBitDepth.C24Bit,
+                _ => _bitDepth.SelectedItem
+            };
+        }
+
+        if (values.TryGetValue(0x1002, out var feeder) &&
+            ushort.TryParse(feeder.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var feederEnabled))
+        {
+            var source = feederEnabled == 0 ? ScanSource.Glass : ScanSource.Feeder;
+            if (source == ScanSource.Feeder &&
+                values.TryGetValue(0x1013, out var duplex) &&
+                ushort.TryParse(duplex.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var duplexEnabled) &&
+                duplexEnabled != 0)
+            {
+                source = ScanSource.Duplex;
+            }
+            _paperSource.SelectedItem = source;
+        }
+
+        if (values.TryGetValue(0x1101, out var brightness) && TryGetFixedValue(brightness, out var brightnessValue))
+        {
+            _brightnessSlider.IntValue = (int) Math.Round(brightnessValue);
+        }
+        if (values.TryGetValue(0x1103, out var contrast) && TryGetFixedValue(contrast, out var contrastValue))
+        {
+            _contrastSlider.IntValue = (int) Math.Round(contrastValue);
+        }
+    }
+
+    private static bool TryGetFixedValue(TwainCapabilitySetting setting, out decimal value)
+    {
+        value = 0;
+        var parts = setting.Value.Split(',');
+        if (parts.Length != 2 ||
+            !short.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var whole) ||
+            !ushort.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var fraction))
+        {
+            return false;
+        }
+        value = whole + fraction / 65536m;
+        return true;
     }
 
     private void Advanced_Click(object? sender, EventArgs e)

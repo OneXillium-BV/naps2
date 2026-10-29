@@ -18,6 +18,13 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(TwainProfileCaptureMode)' == ''">
+    <TwainProfileCaptureMode>NativeUI</TwainProfileCaptureMode>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(TwainProfileCaptureMode)' == 'NativeUI'">
+    <DefineConstants>$(DefineConstants);TWAIN_PROFILE_CAPTURE_NATIVE_UI</DefineConstants>
+  </PropertyGroup>
+
   <Import Project="..\NAPS2.Setup\targets\CommonTargets.targets" />
   <Import Project="..\NAPS2.Setup\targets\SdkUsers.targets" />
   <Import Project="..\NAPS2.Setup\targets\SdkPackageTargets.targets" />

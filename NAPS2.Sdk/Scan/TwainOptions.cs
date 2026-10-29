@@ -6,6 +6,16 @@
 public class TwainOptions
 {
     /// <summary>
+    /// TWAIN capability values captured for this profile.
+    /// </summary>
+    public List<TwainCapabilitySetting>? ProfileSettings { get; set; }
+
+    /// <summary>
+    /// Capture the current TWAIN capability values as part of a capability query.
+    /// </summary>
+    public bool CaptureProfileSettings { get; set; }
+
+    /// <summary>
     /// The DSM version of TWAIN to use. Drivers/Windows usually come bundled with an Old version, while NAPS2 itself
     /// provides a New version. This is the most common thing to try changing if you have compatibility issues. You
     /// can also use NewX64 to access 64-bit TWAIN drivers but usually they don't exist, everything is generally 32-bit. 

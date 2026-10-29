@@ -23,7 +23,17 @@ public class ProfileManagerTests : ContextualTests
         var profile = new ScanProfile
         {
             Device = new ScanProfileDevice("test_id", "test_name"),
-            DisplayName = "A Profile"
+            DisplayName = "A Profile",
+            TwainSettings = new List<TwainCapabilitySetting>
+            {
+                new() { CapabilityId = 0x8123, ItemType = 4, Value = "300" }
+            },
+            WiaSettings = new WiaProfileSettings
+            {
+                ItemName = "Scan",
+                DeviceProps = new Dictionary<int, object> { [0x1234] = 42 },
+                ItemProps = new Dictionary<int, object> { [0x5678] = "custom" }
+            }
         };
         _profileManager.Mutate(new ListMutation<ScanProfile>.Append(profile), new Selectable<ScanProfile>());
         _profileManager.Save();
@@ -36,10 +46,22 @@ public class ProfileManagerTests : ContextualTests
         var profileEl = root.Elements("ScanProfile").Single();
         Assert.Equal("test_id", profileEl.Element("Device")?.Element("ID")?.Value);
         Assert.Equal("A Profile", profileEl.Element("DisplayName")?.Value);
+        Assert.Equal("300", profileEl.Element("TwainSettings")?.Element("TwainCapabilitySetting")?
+            .Element("Value")?.Value);
+        Assert.Equal("Scan", profileEl.Element("WiaSettings")?.Element("ItemName")?.Value);
         // XmlIgnore elements
         Assert.Empty(profileEl.Elements("IsLocked"));
         Assert.Empty(profileEl.Elements("IsDeviceLocked"));
         Assert.Empty(profileEl.Elements("UpgradedFrom"));
+
+        var reloaded = new ProfileManager(_userPath, _systemPath, false, false, false).Profiles.Single();
+        var savedSetting = Assert.Single(reloaded.TwainSettings!);
+        Assert.Equal((ushort) 0x8123, savedSetting.CapabilityId);
+        Assert.Equal((ushort) 4, savedSetting.ItemType);
+        Assert.Equal("300", savedSetting.Value);
+        Assert.Equal("Scan", reloaded.WiaSettings!.ItemName);
+        Assert.Equal(42, reloaded.WiaSettings.DeviceProps[0x1234]);
+        Assert.Equal("custom", reloaded.WiaSettings.ItemProps[0x5678]);
     }
 
     [Fact]

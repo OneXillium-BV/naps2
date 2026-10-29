@@ -121,6 +121,10 @@ public class ScanProfile
 
     public bool TwainProgress { get; set; }
 
+    public List<TwainCapabilitySetting>? TwainSettings { get; set; }
+
+    public WiaProfileSettings? WiaSettings { get; set; }
+
     public AppleImpl AppleImpl { get; set; }
 
     public bool ExcludeBlankPages { get; set; }

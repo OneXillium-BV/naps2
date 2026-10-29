@@ -417,6 +417,27 @@
   <data name="UseNativeUi" xml:space="preserve">
     <value>Use native UI</value>
   </data>
+  <data name="ReadTwainSettings" xml:space="preserve">
+    <value>Read TWAIN settings</value>
+  </data>
+  <data name="ReadWiaSettings" xml:space="preserve">
+    <value>Read WIA settings</value>
+  </data>
+  <data name="TwainSettingsCaptureWarning" xml:space="preserve">
+    <value>The scanner driver may start scanning while its settings window is open. If a scan starts, NAPS2 will cancel the transfer and discard the image. Continue?</value>
+  </data>
+  <data name="TwainSettingsNotAvailable" xml:space="preserve">
+    <value>The TWAIN driver did not return any settings that NAPS2 can save.</value>
+  </data>
+  <data name="TwainSettingsCaptured" xml:space="preserve">
+    <value>Captured {0} TWAIN settings. Save the profile to keep them.</value>
+  </data>
+  <data name="WiaSettingsNotAvailable" xml:space="preserve">
+    <value>The WIA driver did not return any editable property values that NAPS2 can save.</value>
+  </data>
+  <data name="WiaSettingsCaptured" xml:space="preserve">
+    <value>Captured {0} WIA property values. Save the profile to keep them.</value>
+  </data>
   <data name="PaperSourceLabel" xml:space="preserve">
     <value>Paper source:</value>
   </data>

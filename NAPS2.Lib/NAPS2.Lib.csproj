@@ -1,5 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup Condition="'$(TwainProfileCaptureMode)' == ''">
+    <TwainProfileCaptureMode>NativeUI</TwainProfileCaptureMode>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(TwainProfileCaptureMode)' == 'NativeUI'">
+    <DefineConstants>$(DefineConstants);TWAIN_PROFILE_CAPTURE_NATIVE_UI</DefineConstants>
+  </PropertyGroup>
+
   <PropertyGroup>
     <TargetFrameworks>net10.0</TargetFrameworks>
     <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('OSX'))">
