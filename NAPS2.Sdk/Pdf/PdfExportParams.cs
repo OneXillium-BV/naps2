@@ -23,4 +23,6 @@ public record PdfExportParams
     public PdfCompat Compat { get; init; } = PdfCompat.Default;
 
     public PdfCompression Compression { get; init; } = new();
+
+    public bool FlattenPdfPagesBeforeOcr { get; init; }
 }

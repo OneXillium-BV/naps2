@@ -1,4 +1,5 @@
 using NAPS2.ImportExport;
+using NAPS2.Ocr;
 using NAPS2.Pdf;
 using NAPS2.Sdk.Tests.Asserts;
 using Xunit;
@@ -145,6 +146,24 @@ public class PdfImportExportTests : ContextualTests
         {
             PdfAsserts.AssertDoesNotContainText("Sized for printing unscaled", _exportPath);
         }
+    }
+
+    [Fact]
+    public async Task FlattenPdfPagesBeforeOcr_UsesOcrResultEvenWhenPdfAlreadyHasText()
+    {
+        SetUpFakeOcr(new()
+        {
+            { LoadImage(PdfResources.word_patcht_p1), "Flattened OCR result"}
+        });
+
+        File.WriteAllBytes(_importPath, PdfResources.word_patcht_pdf);
+        var images = await _importer.Import(_importPath).ToListAsync();
+
+        await _exporter.Export(_exportPath, images,
+            new PdfExportParams { FlattenPdfPagesBeforeOcr = true }, new OcrParams("eng"));
+
+        PdfAsserts.AssertContainsTextOnce("Flattened OCR result", _exportPath);
+        PdfAsserts.AssertDoesNotContainText("Sized for printing unscaled", _exportPath);
     }
 
     [Theory]

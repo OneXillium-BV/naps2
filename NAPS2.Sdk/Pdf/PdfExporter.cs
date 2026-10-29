@@ -122,7 +122,9 @@ public class PdfExporter
                         .Run();
 
                 var pdfPagesPrePipeline = ocrEngine != null
-                    ? Pipeline.For(pdfPages).Step(CheckIfOcrNeededStep).Run()
+                    ? Pipeline.For(pdfPages)
+                        .Step(state => CheckIfOcrNeededStep(state, exportParams.FlattenPdfPagesBeforeOcr))
+                        .Run()
                     : Task.FromResult(pdfPages);
 
                 await pdfPagesPrePipeline;
@@ -372,12 +374,16 @@ public class PdfExporter
         return state;
     }
 
-    private PageExportState CheckIfOcrNeededStep(PageExportState state)
+    private PageExportState CheckIfOcrNeededStep(PageExportState state, bool flattenPdfPagesBeforeOcr)
     {
         if (state.CancelToken.IsCancellationRequested) return state;
         try
         {
-            if (state.Image.Storage is ImageFileStorage fileStorage)
+            if (flattenPdfPagesBeforeOcr)
+            {
+                state.NeedsOcr = true;
+            }
+            else if (state.Image.Storage is ImageFileStorage fileStorage)
             {
                 state.NeedsOcr = !new PdfiumPdfReader()
                     .ReadTextByPage(fileStorage.FullPath)

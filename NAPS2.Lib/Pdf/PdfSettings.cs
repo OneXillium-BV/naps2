@@ -20,6 +20,9 @@ public record PdfSettings
     public bool SinglePagePdfs { get; set; }
 
     [Config]
+    public bool FlattenPdfPagesBeforeOcr { get; set; }
+
+    [Config]
     public PdfMetadata Metadata
     {
         get => _metadata;
