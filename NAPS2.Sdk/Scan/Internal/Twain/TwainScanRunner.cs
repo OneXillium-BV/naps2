@@ -324,6 +324,7 @@ internal class TwainScanRunner
 
         if (_options.UseNativeUI)
         {
+            TwainProfileSettings.Apply(source, _options.TwainOptions.DriverSettings, _logger);
             return;
         }
 
@@ -417,6 +418,8 @@ internal class TwainScanRunner
         // Resolution
         SetClosest(source.Capabilities.ICapXResolution, _options.Dpi);
         SetClosest(source.Capabilities.ICapYResolution, _options.Dpi);
+
+        TwainProfileSettings.Apply(source, _options.TwainOptions.DriverSettings, _logger);
     }
 
     private void SetClosest(ICapWrapper<TWFix32> cap, int value)

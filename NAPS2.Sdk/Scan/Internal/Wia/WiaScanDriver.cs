@@ -54,12 +54,15 @@ internal class WiaScanDriver : IScanDriver
                 var feeder = items.FirstOrDefault(x => x.Name() == "Feeder");
                 var flatbedCaps = flatbed != null ? GetItemCaps(device, flatbed, true) : null;
                 var feederCaps = feeder != null ? GetItemCaps(device, feeder, false) : null;
+                var wiaSettings = options.WiaOptions.CaptureDriverSettings
+                    ? GetWiaProfileSettings(device, options.PaperSource, flatbed, feeder, items.FirstOrDefault())
+                    : null;
                 return GetWiaScanCaps(
                     device.Properties.GetOrNull(WiaPropertyId.DIP_VEND_DESC)?.Value as string,
                     device.Properties.GetOrNull(WiaPropertyId.DIP_DEV_DESC)?.Value as string,
                     device.Version,
                     device.SupportsFlatbed(), device.SupportsFeeder(), device.SupportsDuplex(),
-                    flatbedCaps, feederCaps);
+                    flatbedCaps, feederCaps, wiaSettings);
             }
             catch (WiaException e)
             {
@@ -71,7 +74,7 @@ internal class WiaScanDriver : IScanDriver
 
     internal ScanCaps GetWiaScanCaps(string? manufacturer, string? model, WiaVersion wiaVersion,
         bool supportsFlatbed, bool supportsFeeder, bool supportsDuplex,
-        PerSourceCaps? flatbedCaps, PerSourceCaps? feederCaps)
+        PerSourceCaps? flatbedCaps, PerSourceCaps? feederCaps, WiaDriverSettings? wiaSettings = null)
     {
         return new ScanCaps
         {
@@ -95,7 +98,29 @@ internal class WiaScanDriver : IScanDriver
             },
             FlatbedCaps = supportsFlatbed ? flatbedCaps : null,
             FeederCaps = supportsFeeder ? feederCaps : null,
-            DuplexCaps = supportsDuplex ? feederCaps : null
+            DuplexCaps = supportsDuplex ? feederCaps : null,
+            WiaDriverSettings = wiaSettings
+        };
+    }
+
+    private static WiaDriverSettings GetWiaProfileSettings(WiaDevice device, PaperSource paperSource,
+        WiaItem? flatbed, WiaItem? feeder, WiaItem? defaultItem)
+    {
+        var item = paperSource switch
+        {
+            PaperSource.Feeder or PaperSource.Duplex => feeder,
+            _ => flatbed
+        } ?? flatbed ?? feeder ?? defaultItem;
+        if (item == null)
+        {
+            return new WiaDriverSettings();
+        }
+
+        return new WiaDriverSettings
+        {
+            SelectedItemName = item.Name(),
+            DeviceProperties = device.Properties.SerializeEditable(),
+            ItemProperties = item.Properties.SerializeEditable()
         };
     }
 
@@ -184,6 +209,14 @@ internal class WiaScanDriver : IScanDriver
             using var device = deviceManager.FindDevice(_options.Device!.ID);
             if (device.Version == WiaVersion.Wia20 && _options.UseNativeUI)
             {
+                if (_options.WiaOptions.DriverSettings is { } profileSettings)
+                {
+                    using var profileItem = GetProfileItem(device, profileSettings);
+                    if (profileItem != null)
+                    {
+                        ApplyProfileSettings(device, profileItem, profileSettings);
+                    }
+                }
                 await DoWia20NativeTransfer(deviceManager, device);
                 return;
             }
@@ -376,6 +409,11 @@ internal class WiaScanDriver : IScanDriver
                     return device.PromptToConfigure(_options.DialogParent);
                 }
             }
+            if (_options.WiaOptions.DriverSettings is { SelectedItemName.Length: > 0 } profileSettings &&
+                device.FindSubItem(profileSettings.SelectedItemName) is { } profileItem)
+            {
+                return profileItem;
+            }
             else if (device.Version == WiaVersion.Wia10)
             {
                 // In WIA 1.0, the root device only has a single child, "Scan"
@@ -394,10 +432,24 @@ internal class WiaScanDriver : IScanDriver
             }
         }
 
+        private WiaItem? GetProfileItem(WiaDevice device, WiaDriverSettings settings)
+        {
+            if (!string.IsNullOrEmpty(settings.SelectedItemName) &&
+                device.FindSubItem(settings.SelectedItemName) is { } profileItem)
+            {
+                return profileItem;
+            }
+
+            var items = device.GetSubItems();
+            var preferredItemName = _options.PaperSource == PaperSource.Flatbed ? "Flatbed" : "Feeder";
+            return items.FirstOrDefault(x => x.Name() == preferredItemName) ?? items.FirstOrDefault();
+        }
+
         private void ConfigureProps(WiaDevice device, WiaItem item)
         {
             if (_options.UseNativeUI)
             {
+                ApplyProfileSettings(device, item);
                 return;
             }
 
@@ -504,6 +556,20 @@ internal class WiaScanDriver : IScanDriver
                 SafeSetPropertyRange(item, WiaPropertyId.IPS_CONTRAST, _options.Contrast, -1000, 1000);
                 SafeSetPropertyRange(item, WiaPropertyId.IPS_BRIGHTNESS, _options.Brightness, -1000, 1000);
             }
+            ApplyProfileSettings(device, item);
+        }
+
+        private void ApplyProfileSettings(WiaDevice device, WiaItem item,
+            WiaDriverSettings? settings = null)
+        {
+            settings ??= _options.WiaOptions.DriverSettings;
+            if (settings == null)
+            {
+                return;
+            }
+
+            device.Properties.DeserializeEditable(device.Properties.Delta(settings.DeviceProperties));
+            item.Properties.DeserializeEditable(item.Properties.Delta(settings.ItemProperties));
         }
 
         private void SafeSetProperty(WiaItemBase item, int propId, int value)

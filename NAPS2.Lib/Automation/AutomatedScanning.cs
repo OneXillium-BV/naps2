@@ -108,7 +108,8 @@ internal class AutomatedScanning
             if (_options.Install != null)
             {
                 await InstallComponents();
-                if (_options.OutputPath == null && _options.EmailFileName == null && !_options.AutoSave)
+                if (_options.OutputPath == null && _options.EmailFileName == null && !_options.AutoSave &&
+                    _options.ProfileOutputPath == null)
                 {
                     return;
                 }
@@ -117,6 +118,16 @@ internal class AutomatedScanning
             if (_options.ListDevices)
             {
                 await ListDevices();
+                return;
+            }
+
+            if (_options.ProfileOutputPath != null)
+            {
+                if (!GetProfile(out var profile) || !await SetProfileOverrides(profile))
+                {
+                    return;
+                }
+                await ExportProfile(profile);
                 return;
             }
 
@@ -495,7 +506,7 @@ internal class AutomatedScanning
     {
         // Most validation is done by the CommandLineParser library, but some constraints that can't be represented by that API need to be checked here
         if (_options.OutputPath == null && _options.EmailFileName == null && _options.Install == null &&
-            !_options.AutoSave && !_options.ListDevices)
+            !_options.AutoSave && !_options.ListDevices && _options.ProfileOutputPath == null)
         {
             _errorOutput.DisplayError(ConsoleResources.OutputOrEmailRequired);
             return false;
@@ -503,6 +514,15 @@ internal class AutomatedScanning
         if (_options.OutputPath == null && _options.EmailFileName == null && _options.ImportPath != null)
         {
             _errorOutput.DisplayError(ConsoleResources.OutputOrEmailRequiredForImport);
+            return false;
+        }
+
+        if (_options.ProfileOutputPath != null &&
+            (_options.OutputPath != null || _options.EmailFileName != null || _options.ImportPath != null ||
+             _options.Install != null || _options.ListDevices || _options.AutoSave))
+        {
+            _errorOutput.DisplayError(
+                "--profile-output cannot be combined with scanning, importing, device-listing, or installation options.");
             return false;
         }
 
@@ -789,6 +809,10 @@ internal class AutomatedScanning
             {
                 profile = new ScanProfile { Version = ScanProfile.CURRENT_VERSION };
             }
+            else if (_options.ProfileName != null && File.Exists(_options.ProfileName))
+            {
+                profile = new XmlSerializer<ScanProfile>().DeserializeFromFile(_options.ProfileName);
+            }
             else if (_options.ProfileName != null)
             {
                 // Use the profile with the specified name (try case-sensitive first, then case-insensitive)
@@ -816,8 +840,46 @@ internal class AutomatedScanning
         return true;
     }
 
+    private async Task ExportProfile(ScanProfile profile)
+    {
+        if (File.Exists(_options.ProfileOutputPath) && !_options.ForceOverwrite)
+        {
+            _errorOutput.DisplayError($"Profile file already exists: {_options.ProfileOutputPath}. Use --force to overwrite it.");
+            return;
+        }
+
+        if (_options.IncludeDriverSettings)
+        {
+            switch (ScanPerformer.ParseDriver(profile.DriverName))
+            {
+                case Driver.Wia:
+                    var wiaCaps = await _scanPerformer.CaptureWiaDriverSettings(profile);
+                    profile.WiaDriverSettings = wiaCaps.WiaDriverSettings;
+                    break;
+                case Driver.Twain:
+                    var twainCaps = await _scanPerformer.CaptureTwainDriverSettings(profile);
+                    profile.TwainDriverSettings = twainCaps.TwainDriverSettings;
+                    break;
+            }
+        }
+
+        profile.Version = ScanProfile.CURRENT_VERSION;
+        if (string.IsNullOrEmpty(profile.DisplayName))
+        {
+            profile.DisplayName = profile.Device?.Name ?? "";
+        }
+        new XmlSerializer<ScanProfile>().SerializeToFile(_options.ProfileOutputPath!, profile);
+        OutputVerbose($"Profile saved to {_options.ProfileOutputPath}");
+    }
+
     private async Task<bool> SetProfileOverrides(ScanProfile profile)
     {
+        if (!_options.IncludeDriverSettings)
+        {
+            profile.TwainDriverSettings = null;
+            profile.WiaDriverSettings = null;
+        }
+
         if (!string.IsNullOrEmpty(_options.Driver))
         {
             var driver = ScanPerformer.ParseDriver(_options.Driver);

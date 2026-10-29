@@ -82,6 +82,12 @@ public class EditProfileForm : EtoDialogBase
         }
         DeviceDriver = e.NewChoice.Driver;
         IconUri = e.NewChoice.Device?.IconUri;
+        if (e.PreviousChoice.Device?.ID != e.NewChoice.Device?.ID ||
+            e.PreviousChoice.Driver != e.NewChoice.Driver)
+        {
+            ScanProfile.TwainDriverSettings = null;
+            ScanProfile.WiaDriverSettings = null;
+        }
 
         UpdateCaps();
         UpdateEnabledControls();
@@ -402,6 +408,8 @@ public class EditProfileForm : EtoDialogBase
             FlipDuplexedPages = ScanProfile.FlipDuplexedPages,
             TwainImpl = ScanProfile.TwainImpl,
             TwainProgress = ScanProfile.TwainProgress,
+            TwainDriverSettings = ScanProfile.TwainDriverSettings,
+            WiaDriverSettings = ScanProfile.WiaDriverSettings,
             AppleImpl = ScanProfile.AppleImpl,
 
             ExcludeBlankPages = ScanProfile.ExcludeBlankPages,

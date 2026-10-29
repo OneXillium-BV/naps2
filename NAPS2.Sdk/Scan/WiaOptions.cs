@@ -8,4 +8,8 @@ public class WiaOptions
     public WiaApiVersion WiaApiVersion { get; set; }
 
     public bool OffsetWidth { get; set; }
+
+    public bool CaptureDriverSettings { get; set; }
+
+    public WiaDriverSettings? DriverSettings { get; set; }
 }

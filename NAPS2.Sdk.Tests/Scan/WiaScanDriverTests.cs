@@ -1,4 +1,5 @@
-﻿using NAPS2.Scan;
+using NAPS2.Serialization;
+using NAPS2.Scan;
 using NAPS2.Scan.Internal.Wia;
 using NAPS2.Wia;
 using Xunit;
@@ -68,5 +69,31 @@ public class WiaScanDriverTests : ContextualTests
         Assert.Null(caps.FlatbedCaps);
         Assert.Null(caps.FeederCaps);
         Assert.Null(caps.DuplexCaps);
+    }
+
+    [Fact]
+    public void WiaDriverSettings_SerializesArbitraryPropertyValues()
+    {
+        var settings = new WiaDriverSettings
+        {
+            SelectedItemName = "Feeder",
+            DeviceProperties = new Dictionary<int, object>
+            {
+                [1] = 123,
+                [2] = "custom device value"
+            },
+            ItemProperties = new Dictionary<int, object>
+            {
+                [3] = 456
+            }
+        };
+
+        var reloaded = settings.ToXml().FromXml<WiaDriverSettings>();
+
+        Assert.Equal("Feeder", reloaded.SelectedItemName);
+        Assert.Equal(123, reloaded.DeviceProperties[1]);
+        Assert.Equal("custom device value", reloaded.DeviceProperties[2]);
+        Assert.Equal(456, reloaded.ItemProperties[3]);
+        Assert.Equal(3, reloaded.Count);
     }
 }

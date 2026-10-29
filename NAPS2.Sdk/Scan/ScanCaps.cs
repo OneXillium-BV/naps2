@@ -30,4 +30,14 @@ public class ScanCaps
     /// Capabilities specific to the Duplex paper source.
     /// </summary>
     public PerSourceCaps? DuplexCaps { get; init; }
+
+    /// <summary>
+    /// Current TWAIN capability values, when explicitly requested.
+    /// </summary>
+    public List<TwainCapabilitySetting>? TwainDriverSettings { get; init; }
+
+    /// <summary>
+    /// Current editable WIA properties, when explicitly requested.
+    /// </summary>
+    public WiaDriverSettings? WiaDriverSettings { get; init; }
 }

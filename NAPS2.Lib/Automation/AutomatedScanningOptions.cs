@@ -60,14 +60,20 @@ public class AutomatedScanningOptions
     #region Profile Options
 
     [Option('p', "profile", HelpText = "The name of the profile to use for scanning." +
-                                       " If not specified, the most-recently-used profile from the GUI is selected.")]
+                                       " Can also be a scanner profile file path. If not specified, the default GUI profile is selected.")]
     public string? ProfileName { get; set; }
+
+    [Option("profile-output", HelpText = "Generate a scanner profile file for the selected device and exit.")]
+    public string? ProfileOutputPath { get; set; }
 
     [Option("noprofile", HelpText = "Use default profile settings instead of a GUI profile.")]
     public bool NoProfile { get; set; }
 
     [Option("driver", HelpText = "Scanning driver (wia/twain/escl/sane/apple).")]
     public string? Driver { get; set; }
+
+    [Option("driver-settings", HelpText = "Include all available WIA/TWAIN-specific settings in an exported profile, or apply saved driver-specific settings when scanning.")]
+    public bool IncludeDriverSettings { get; set; }
 
     [Option("device", HelpText = "Scanning device name (can be inexact) or exact ID.")]
     public string? Device { get; set; }

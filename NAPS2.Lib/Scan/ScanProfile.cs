@@ -121,6 +121,24 @@ public class ScanProfile
 
     public bool TwainProgress { get; set; }
 
+    public List<TwainCapabilitySetting>? TwainDriverSettings { get; set; }
+
+    public WiaDriverSettings? WiaDriverSettings { get; set; }
+
+    [XmlElement("TwainSettings")]
+    public List<TwainCapabilitySetting>? LegacyTwainSettings
+    {
+        get => null;
+        set => TwainDriverSettings ??= value;
+    }
+
+    [XmlElement("WiaSettings")]
+    public WiaDriverSettings? LegacyWiaSettings
+    {
+        get => null;
+        set => WiaDriverSettings ??= value;
+    }
+
     public AppleImpl AppleImpl { get; set; }
 
     public bool ExcludeBlankPages { get; set; }

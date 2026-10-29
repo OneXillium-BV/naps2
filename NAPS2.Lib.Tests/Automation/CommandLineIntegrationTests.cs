@@ -1284,7 +1284,7 @@ public class CommandLineIntegrationTests : ContextualTests
     {
         var (scanDriverMock, scanDriverFactoryMock) = CreateDriverMocks();
 
-        await _automationHelper.WithContainer(container =>
+        void SetUpProfile(IContainer container)
         {
             var profileManager = container.Resolve<IProfileManager>();
             profileManager.Mutate(new ListMutation<ScanProfile>.Append(new ScanProfile
@@ -1294,13 +1294,43 @@ public class CommandLineIntegrationTests : ContextualTests
                 PaperSource = ScanSource.Feeder,
                 BitDepth = ScanBitDepth.Grayscale,
                 Resolution = new ScanResolution { Dpi = 300 },
-                PageSize = ScanPageSize.A4
+                PageSize = ScanPageSize.A4,
+                TwainDriverSettings = new List<TwainCapabilitySetting>
+                {
+                    new() { CapabilityId = 0x8123, ItemType = 4, Value = "300" }
+                },
+                WiaDriverSettings = new WiaDriverSettings
+                {
+                    SelectedItemName = "Scan",
+                    DeviceProperties = new Dictionary<int, object> { [0x1234] = 42 },
+                    ItemProperties = new Dictionary<int, object> { [0x5678] = "custom" }
+                }
             }), ListSelection.Empty<ScanProfile>());
-        }).RunCommand(
+        }
+
+        await _automationHelper.WithContainer(SetUpProfile).RunCommand(
             new AutomatedScanningOptions
             {
                 ProfileName = "second_profile",
-                OutputPath = P("test.jpg"),
+                OutputPath = P("test-default.jpg"),
+                Verbose = true
+            },
+            scanDriverFactoryMock);
+
+        _ = scanDriverMock.Received().Scan(
+            Arg.Is<ScanOptions>(options =>
+                options.TwainOptions.DriverSettings == null &&
+                options.WiaOptions.DriverSettings == null),
+            Arg.Any<CancellationToken>(),
+            Arg.Any<IScanEvents>(),
+            Arg.Any<Action<IMemoryImage>>());
+
+        await _automationHelper.WithContainer(SetUpProfile).RunCommand(
+            new AutomatedScanningOptions
+            {
+                ProfileName = "second_profile",
+                IncludeDriverSettings = true,
+                OutputPath = P("test-with-settings.jpg"),
                 Verbose = true
             },
             scanDriverFactoryMock);
@@ -1310,11 +1340,71 @@ public class CommandLineIntegrationTests : ContextualTests
                 options.PaperSource == PaperSource.Feeder &&
                 options.BitDepth == BitDepth.Grayscale &&
                 options.Dpi == 300 &&
-                options.PageSize == PageSize.A4),
+                options.PageSize == PageSize.A4 &&
+                options.TwainOptions.DriverSettings != null &&
+                options.TwainOptions.DriverSettings.Count == 1 &&
+                options.TwainOptions.DriverSettings[0].CapabilityId == 0x8123 &&
+                options.TwainOptions.DriverSettings[0].Value == "300" &&
+                options.WiaOptions.DriverSettings != null &&
+                options.WiaOptions.DriverSettings.SelectedItemName == "Scan" &&
+                options.WiaOptions.DriverSettings.DeviceProperties.Count == 1 &&
+                options.WiaOptions.DriverSettings.ItemProperties.Count == 1),
             Arg.Any<CancellationToken>(),
             Arg.Any<IScanEvents>(),
             Arg.Any<Action<IMemoryImage>>());
         AssertRecoveryCleanedUp();
+    }
+
+    [Fact]
+    public async Task ExportAndScanWithProfileFile()
+    {
+        var (scanDriverMock, scanDriverFactoryMock) = CreateDriverMocks();
+        scanDriverMock.GetCaps(Arg.Any<ScanOptions>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new ScanCaps
+            {
+                WiaDriverSettings = new WiaDriverSettings
+                {
+                    SelectedItemName = "Feeder",
+                    DeviceProperties = new Dictionary<int, object> { [0x1234] = 42 },
+                    ItemProperties = new Dictionary<int, object> { [0x5678] = "custom" }
+                }
+            }));
+
+        var profilePath = P("scanner-profile.xml");
+        await _automationHelper.RunCommand(
+            new AutomatedScanningOptions
+            {
+                NoProfile = true,
+                Driver = "wia",
+                Device = "test_name1",
+                IncludeDriverSettings = true,
+                ProfileOutputPath = profilePath
+            },
+            scanDriverFactoryMock);
+
+        var profileXml = File.ReadAllText(profilePath);
+        Assert.Contains("<WiaDriverSettings>", profileXml);
+        Assert.Contains("<SelectedItemName>Feeder</SelectedItemName>", profileXml);
+        Assert.DoesNotContain("<WiaSettings>", profileXml);
+
+        await _automationHelper.RunCommand(
+            new AutomatedScanningOptions
+            {
+                ProfileName = profilePath,
+                IncludeDriverSettings = true,
+                OutputPath = P("test.jpg")
+            },
+            scanDriverFactoryMock);
+
+        _ = scanDriverMock.Received().Scan(
+            Arg.Is<ScanOptions>(options =>
+                options.WiaOptions.DriverSettings != null &&
+                options.WiaOptions.DriverSettings.SelectedItemName == "Feeder" &&
+                options.WiaOptions.DriverSettings.DeviceProperties.Count == 1 &&
+                options.WiaOptions.DriverSettings.ItemProperties.Count == 1),
+            Arg.Any<CancellationToken>(),
+            Arg.Any<IScanEvents>(),
+            Arg.Any<Action<IMemoryImage>>());
     }
 
     [Fact]

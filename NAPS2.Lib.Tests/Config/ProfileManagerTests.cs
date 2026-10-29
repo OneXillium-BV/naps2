@@ -23,7 +23,24 @@ public class ProfileManagerTests : ContextualTests
         var profile = new ScanProfile
         {
             Device = new ScanProfileDevice("test_id", "test_name"),
-            DisplayName = "A Profile"
+            DisplayName = "A Profile",
+            TwainDriverSettings = new List<TwainCapabilitySetting>
+            {
+                new()
+                {
+                    CapabilityId = 0x8123,
+                    CapabilityName = "CapXResolution",
+                    ItemType = 4,
+                    ItemTypeName = "Fix32",
+                    Value = "300"
+                }
+            },
+            WiaDriverSettings = new WiaDriverSettings
+            {
+                SelectedItemName = "Scan",
+                DeviceProperties = new Dictionary<int, object> { [0x1234] = 42 },
+                ItemProperties = new Dictionary<int, object> { [0x5678] = "custom" }
+            }
         };
         _profileManager.Mutate(new ListMutation<ScanProfile>.Append(profile), new Selectable<ScanProfile>());
         _profileManager.Save();
@@ -36,10 +53,26 @@ public class ProfileManagerTests : ContextualTests
         var profileEl = root.Elements("ScanProfile").Single();
         Assert.Equal("test_id", profileEl.Element("Device")?.Element("ID")?.Value);
         Assert.Equal("A Profile", profileEl.Element("DisplayName")?.Value);
+        Assert.Equal("300", profileEl.Element("TwainDriverSettings")?.Element("TwainCapabilitySetting")?
+            .Element("Value")?.Value);
+        Assert.Equal("CapXResolution", profileEl.Element("TwainDriverSettings")?
+            .Element("TwainCapabilitySetting")?.Element("CapabilityName")?.Value);
+        Assert.Equal("Scan", profileEl.Element("WiaDriverSettings")?.Element("SelectedItemName")?.Value);
         // XmlIgnore elements
         Assert.Empty(profileEl.Elements("IsLocked"));
         Assert.Empty(profileEl.Elements("IsDeviceLocked"));
         Assert.Empty(profileEl.Elements("UpgradedFrom"));
+
+        var reloaded = new ProfileManager(_userPath, _systemPath, false, false, false).Profiles.Single();
+        var savedSetting = Assert.Single(reloaded.TwainDriverSettings!);
+        Assert.Equal((ushort) 0x8123, savedSetting.CapabilityId);
+        Assert.Equal((ushort) 4, savedSetting.ItemType);
+        Assert.Equal("300", savedSetting.Value);
+        Assert.Equal("CapXResolution", savedSetting.CapabilityName);
+        Assert.Equal("Fix32", savedSetting.ItemTypeName);
+        Assert.Equal("Scan", reloaded.WiaDriverSettings!.SelectedItemName);
+        Assert.Equal(42, reloaded.WiaDriverSettings.DeviceProperties[0x1234]);
+        Assert.Equal("custom", reloaded.WiaDriverSettings.ItemProperties[0x5678]);
     }
 
     [Fact]

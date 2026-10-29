@@ -87,6 +87,26 @@ internal class ScanPerformer : IScanPerformer
         return await controller.GetCaps(options, cancelToken);
     }
 
+    public async Task<ScanCaps> CaptureTwainDriverSettings(ScanProfile scanProfile,
+        CancellationToken cancelToken = default)
+    {
+        var options = BuildOptions(scanProfile, new ScanParams(), IntPtr.Zero, false);
+        options.Device = scanProfile.Device?.ToScanDevice(options.Driver);
+        options.TwainOptions.CaptureDriverSettings = true;
+        var controller = CreateScanController(new ScanParams());
+        return await controller.GetCaps(options, cancelToken);
+    }
+
+    public async Task<ScanCaps> CaptureWiaDriverSettings(ScanProfile scanProfile,
+        CancellationToken cancelToken = default)
+    {
+        var options = BuildOptions(scanProfile, new ScanParams(), IntPtr.Zero, false);
+        options.Device = scanProfile.Device?.ToScanDevice(options.Driver);
+        options.WiaOptions.CaptureDriverSettings = true;
+        var controller = CreateScanController(new ScanParams());
+        return await controller.GetCaps(options, cancelToken);
+    }
+
     public async IAsyncEnumerable<ProcessedImage> PerformScan(ScanProfile scanProfile, ScanParams scanParams,
         IntPtr dialogParent = default, [EnumeratorCancellation] CancellationToken cancelToken = default)
     {
@@ -242,7 +262,8 @@ internal class ScanPerformer : IScanPerformer
             WiaOptions =
             {
                 WiaApiVersion = scanProfile.WiaVersion,
-                OffsetWidth = scanProfile.WiaOffsetWidth
+                OffsetWidth = scanProfile.WiaOffsetWidth,
+                DriverSettings = scanProfile.WiaDriverSettings
             },
             TwainOptions =
             {
@@ -259,7 +280,8 @@ internal class ScanPerformer : IScanPerformer
                     _ => TwainTransferMode.Native
                 },
                 ShowProgress = scanProfile.TwainProgress,
-                IncludeWiaDevices = false
+                IncludeWiaDevices = false,
+                DriverSettings = scanProfile.TwainDriverSettings
             },
             AppleOptions =
             {
