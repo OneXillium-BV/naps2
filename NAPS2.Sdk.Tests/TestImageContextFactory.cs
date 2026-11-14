@@ -10,7 +10,6 @@ public static class TestImageContextFactory
             "gdi" => new NAPS2.Images.Gdi.GdiImageContext(),
             "wpf" => new NAPS2.Images.Wpf.WpfImageContext(),
 #endif
-            "is" or "imagesharp" => new NAPS2.Images.ImageSharp.ImageSharpImageContext(),
 #if MAC
             "mac" => new NAPS2.Images.Mac.MacImageContext(),
 #endif

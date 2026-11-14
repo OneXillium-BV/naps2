@@ -37,12 +37,6 @@
             "NAPS2.Images.Gtk.csproj"
           ],
           "src": "../../NAPS2.Images.Gtk"
-        },
-        {
-          "files": [
-            "NAPS2.Images.ImageSharp.csproj"
-          ],
-          "src": "../../NAPS2.Images.ImageSharp"
         }
       ],
       "dest": "api",

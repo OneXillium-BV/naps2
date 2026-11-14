@@ -249,7 +249,7 @@ public class SaveImagesOperationTests : ContextualTests
         Assert.Equal(3, Folder.GetFiles().Length);
     }
 
-    [PlatformFact(exclude: PlatformFlags.ImageSharpImage)]
+    [Fact]
     public async Task MultiPageTiff()
     {
         Assert.True(await Save(P("test.tiff"), CreateScannedImages(ImageResources.dog, ImageResources.dog_gray)));
@@ -259,7 +259,7 @@ public class SaveImagesOperationTests : ContextualTests
         Assert.Equal(2, frames.Count);
     }
 
-    [PlatformFact(exclude: PlatformFlags.ImageSharpImage)]
+    [Fact]
     public async Task MultiPageTiff_Existing_PromptNo()
     {
         File.WriteAllText(P("test.tiff"), "blah");
