@@ -13,6 +13,8 @@ System requirements:
 - macOS 10.15+ (x64, arm64)
 - Linux (x64, arm64) (GTK 3.20+, glibc 2.27+, libsane)
 
+> **OneXillium branch:** PDF JPEG quality, PDF/A-2u, a JBIG2 switch for the console and the removal of ImageSharp, waiting to be merged into `master`. See [ONEXILLIUM.md](ONEXILLIUM.md).
+
 Visit the NAPS2 home page at [www.naps2.com](http://www.naps2.com).
 
 Other links:
