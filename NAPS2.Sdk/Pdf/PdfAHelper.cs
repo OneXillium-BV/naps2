@@ -23,6 +23,8 @@ internal static class PdfAHelper
                 return ("1", "B");
             case PdfCompat.PdfA2B:
                 return ("2", "B");
+            case PdfCompat.PdfA2U:
+                return ("2", "U");
             case PdfCompat.PdfA3B:
                 return ("3", "B");
             case PdfCompat.PdfA3U:

@@ -9,5 +9,7 @@ public enum PdfCompat
     PdfA1B,
     PdfA2B,
     PdfA3B,
-    PdfA3U
+    PdfA3U,
+    // Added after PdfA3U so the existing values keep their numbers
+    PdfA2U
 }

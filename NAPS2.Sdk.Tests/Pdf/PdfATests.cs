@@ -84,6 +84,7 @@ public class PdfATests : ContextualTests
         [PdfCompat.Default, "", 14],
         [PdfCompat.PdfA1B, "PDF/A-1B", 14],
         [PdfCompat.PdfA2B, "PDF/A-2B", 17],
+        [PdfCompat.PdfA2U, "PDF/A-2U", 17],
         [PdfCompat.PdfA3B, "PDF/A-3B", 17],
         [PdfCompat.PdfA3U, "PDF/A-3U", 17]
     ];

@@ -152,6 +152,84 @@ public class PdfExporterTests : ContextualTests
 
     [Theory]
     [ClassData(typeof(StorageAwareTestData))]
+    public async Task ExportPngImageWithJpegQuality(StorageConfig storageConfig)
+    {
+        storageConfig.Apply(this);
+
+        var filePath = P("test.pdf");
+        using var image = ScanningContext.CreateProcessedImage(LoadImage(ImageResources.dog_png), lossless: true);
+
+        await _exporter.Export(filePath, [image], new PdfExportParams
+        {
+            Compression = new PdfCompression { JpegQuality = 50 }
+        });
+
+        PdfAsserts.AssertImageFilter(filePath, 0, "DCTDecode");
+        using var rendered = image.Render();
+        var expected = rendered.SaveToMemoryStream(ImageFileFormat.Jpeg,
+            new ImageSaveOptions { PixelFormatHint = ImagePixelFormat.RGB24, Quality = 50 }).ToArray();
+        Assert.True(File.ReadAllBytes(filePath).AsSpan().IndexOf(expected) >= 0,
+            "Expected the PDF to contain the image encoded as JPEG at quality 50");
+    }
+
+    [Theory]
+    [ClassData(typeof(StorageAwareTestData))]
+    public async Task ExportBlackAndWhiteImageWithJpegQuality(StorageConfig storageConfig)
+    {
+        storageConfig.Apply(this);
+
+        var filePath = P("test.pdf");
+        using var image = ScanningContext.CreateProcessedImage(LoadImage(ImageResources.dog_bw), lossless: true);
+
+        await _exporter.Export(filePath, [image], new PdfExportParams
+        {
+            Compression = new PdfCompression { JpegQuality = 85, AllowJbig2 = false }
+        });
+
+        // Black and white stays bilevel, the JPEG quality only applies to color/grayscale
+        PdfAsserts.AssertImages(filePath, ImageResources.dog_bw);
+        PdfAsserts.AssertImageFilter(filePath, 0, "CCITTFaxDecode");
+    }
+
+    [Theory]
+    [ClassData(typeof(StorageAwareTestData))]
+    public async Task ExportAlphaImageWithJpegQuality(StorageConfig storageConfig)
+    {
+        storageConfig.Apply(this);
+
+        var filePath = P("test.pdf");
+        using var image = ScanningContext.CreateProcessedImage(LoadImage(ImageResources.dog_alpha));
+
+        await _exporter.Export(filePath, [image], new PdfExportParams
+        {
+            Compression = new PdfCompression { JpegQuality = 85 }
+        });
+
+        // JPEG can't store transparency, so the image stays lossless
+        PdfAsserts.AssertImageFilter(filePath, 0, "FlateDecode");
+    }
+
+    [Fact]
+    public async Task ExportJpegFileWithJpegQualityIsNotReencoded()
+    {
+        SetUpFileStorage();
+
+        var filePath = P("test.pdf");
+        using var image = ScanningContext.CreateProcessedImage(LoadImage(ImageResources.dog));
+
+        await _exporter.Export(filePath, [image], new PdfExportParams
+        {
+            Compression = new PdfCompression { JpegQuality = 50 }
+        });
+
+        PdfAsserts.AssertImageFilter(filePath, 0, "DCTDecode");
+        Assert.True(image.IsUntransformedJpegFile(out var jpegPath));
+        Assert.True(File.ReadAllBytes(filePath).AsSpan().IndexOf(File.ReadAllBytes(jpegPath)) >= 0,
+            "Expected the stored JPEG file to be embedded unchanged");
+    }
+
+    [Theory]
+    [ClassData(typeof(StorageAwareTestData))]
     public async Task ExportUnalignedPngImage(StorageConfig storageConfig)
     {
         storageConfig.Apply(this);

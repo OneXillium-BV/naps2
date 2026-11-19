@@ -92,7 +92,8 @@ public class PdfExporter
                 {
                     var pageState = new PageExportState(
                         image, pageIndex++, document, document.AddPage(), glyphlessFont, ocrEngine, ocrParams,
-                        IncrementProgress, progress.CancelToken, exportParams.Compat);
+                        IncrementProgress, progress.CancelToken, exportParams.Compat,
+                        exportParams.Compression.JpegQuality);
                     // TODO: To improve our ability to passthrough, we could consider using Pdfium to apply the transform to
                     // the underlying PDF file. For example, doing color shifting on individual text + image objects, or
                     // applying matrix changes.
@@ -280,7 +281,7 @@ public class PdfExporter
                 return new DirectJpegEmbedder(jpegHeader, jpegPath);
             }
         }
-        return new RenderedImageEmbedder(state.Image.Render(), state.Image.Metadata);
+        return new RenderedImageEmbedder(state.Image.Render(), state.Image.Metadata, state.JpegQuality);
     }
 
     private PageExportState WriteToPdfSharpStep(PageExportState state)
@@ -319,7 +320,7 @@ public class PdfExporter
 
         document.Version = compat switch
         {
-            PdfCompat.PdfA2B or PdfCompat.PdfA3B or PdfCompat.PdfA3U => PDF_VERSION_17,
+            PdfCompat.PdfA2B or PdfCompat.PdfA2U or PdfCompat.PdfA3B or PdfCompat.PdfA3U => PDF_VERSION_17,
             _ => PDF_VERSION_14
         };
 
@@ -609,8 +610,9 @@ public class PdfExporter
     {
         public PageExportState(ProcessedImage image, int pageIndex, PdfDocument document, PdfPage page,
             Lazy<PdfReference> glyphlessFont, IOcrEngine? ocrEngine, OcrParams? ocrParams, Action incrementProgress, CancellationToken cancelToken,
-            PdfCompat compat)
+            PdfCompat compat, int? jpegQuality)
         {
+            JpegQuality = jpegQuality;
             Image = image;
             PageIndex = pageIndex;
             Document = document;
@@ -634,6 +636,7 @@ public class PdfExporter
         public Action IncrementProgress { get; }
         public CancellationToken CancelToken { get; }
         public PdfCompat Compat { get; }
+        public int? JpegQuality { get; }
 
         public bool NeedsOcr { get; set; }
         public IEmbedder? Embedder { get; set; }
@@ -728,11 +731,13 @@ public class PdfExporter
     private class RenderedImageEmbedder : IEmbedder
     {
         private readonly ImageMetadata _metadata;
+        private readonly int? _jpegQuality;
 
-        public RenderedImageEmbedder(IMemoryImage image, ImageMetadata metadata)
+        public RenderedImageEmbedder(IMemoryImage image, ImageMetadata metadata, int? jpegQuality)
         {
             Image = image;
             _metadata = metadata;
+            _jpegQuality = jpegQuality?.Clamp(1, 100);
         }
 
         public IMemoryImage Image { get; private set; }
@@ -746,12 +751,20 @@ public class PdfExporter
         {
             // PDFs require RGB channels so we need to make sure we're exporting that.
             Image.Save(stream, ImageFileFormat.Jpeg,
-                new ImageSaveOptions { PixelFormatHint = ImagePixelFormat.RGB24, Quality = _metadata.Quality });
+                new ImageSaveOptions
+                    { PixelFormatHint = ImagePixelFormat.RGB24, Quality = _jpegQuality ?? _metadata.Quality });
         }
 
         public ImageExportFormat PrepareForExport(ImageMetadata metadata)
         {
             var exportFormat = ImageExportHelper.GetExportFormat(Image, metadata.Lossless);
+            if (_jpegQuality != null && exportFormat.FileFormat == ImageFileFormat.Png &&
+                exportFormat.PixelFormat is ImagePixelFormat.RGB24 or ImagePixelFormat.Gray8)
+            {
+                // An explicit PDF JPEG quality was requested, so store color/grayscale images as JPEG even if they
+                // would otherwise be lossless. Black and white (BW1) and transparent (ARGB32) images are left alone.
+                exportFormat = new ImageExportFormat(ImageFileFormat.Jpeg, ImagePixelFormat.RGB24);
+            }
             if (exportFormat.FileFormat == ImageFileFormat.Unknown)
             {
                 exportFormat = exportFormat with { FileFormat = ImageFileFormat.Jpeg };

@@ -1309,6 +1309,87 @@ public class CommandLineIntegrationTests : ContextualTests
     }
 
     [Fact]
+    public async Task ImportPngAsPdfA2U()
+    {
+        var importPath = P("import.png");
+        File.WriteAllBytes(importPath, ImageResources.dog_png);
+        var path = P("test.pdf");
+        await _automationHelper.RunCommand(
+            new AutomatedScanningOptions
+            {
+                ImportPath = importPath,
+                OutputPath = path,
+                PdfCompat = "A2-u",
+                Verbose = true
+            });
+        PdfAsserts.AssertVersion(17, path);
+        await PdfAsserts.AssertCompliant("PDF/A-2U", path);
+        // Without --pdfjpegquality an imported PNG stays lossless
+        PdfAsserts.AssertImageFilter(path, 0, "FlateDecode");
+        AssertRecoveryCleanedUp();
+    }
+
+    [Fact]
+    public async Task ImportPngWithPdfJpegQuality()
+    {
+        var importPath = P("import.png");
+        File.WriteAllBytes(importPath, ImageResources.dog_png);
+        var path = P("test.pdf");
+        await _automationHelper.RunCommand(
+            new AutomatedScanningOptions
+            {
+                ImportPath = importPath,
+                OutputPath = path,
+                PdfJpegQuality = 85,
+                Verbose = true
+            });
+        PdfAsserts.AssertImageFilter(path, 0, "DCTDecode");
+        PdfAsserts.AssertImages(path, ImageResources.dog);
+        AssertRecoveryCleanedUp();
+    }
+
+    [Fact]
+    public async Task ImportBlackAndWhitePngWithPdfJpegQualityAndDisableJbig2()
+    {
+        var importPath = P("import.png");
+        File.WriteAllBytes(importPath, ImageResources.dog_bw);
+        var path = P("test.pdf");
+        await _automationHelper.RunCommand(
+            new AutomatedScanningOptions
+            {
+                ImportPath = importPath,
+                OutputPath = path,
+                PdfJpegQuality = 85,
+                DisableJbig2 = true,
+                Verbose = true
+            });
+        PdfAsserts.AssertImageFilter(path, 0, "CCITTFaxDecode");
+        AssertRecoveryCleanedUp();
+    }
+
+    [Fact]
+    public async Task IgnoreSavedPdfCompressionSettings()
+    {
+        var importPath = P("import.png");
+        File.WriteAllBytes(importPath, ImageResources.dog_bw);
+        var path = P("test.pdf");
+        await _automationHelper.WithContainer(container =>
+        {
+            var config = container.Resolve<Naps2Config>();
+            config.User.Set(c => c.PdfSettings.Compression, new PdfCompression { AllowJbig2 = false });
+        }).RunCommand(
+            new AutomatedScanningOptions
+            {
+                ImportPath = importPath,
+                OutputPath = path,
+                Verbose = true
+            });
+        // The console only uses --disablejbig2, not the GUI setting
+        PdfAsserts.AssertImageFilter(path, 0, "JBIG2Decode");
+        AssertRecoveryCleanedUp();
+    }
+
+    [Fact]
     public async Task IgnoreSinglePagePdfSetting()
     {
         var path = P("test.pdf");

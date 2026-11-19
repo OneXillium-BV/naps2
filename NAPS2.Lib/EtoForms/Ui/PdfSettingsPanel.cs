@@ -12,6 +12,7 @@ internal class PdfSettingsPanel : SettingsPanelWithRememberCheckbox<PdfSettings>
     private readonly CheckBox _skipSavePrompt = new() { Text = UiStrings.SkipSavePrompt };
     private readonly CheckBox _singlePagePdfs = new() { Text = UiStrings.SinglePageFiles };
     private readonly CheckBox _flattenPdfPagesBeforeOcr = new() { Text = UiStrings.FlattenPdfPagesBeforeOcr };
+    private readonly CheckBox _allowJbig2 = new() { Text = UiStrings.AllowJbig2Compression };
     private readonly TextBox _title = new();
     private readonly TextBox _author = new();
     private readonly TextBox _subject = new();
@@ -38,11 +39,17 @@ internal class PdfSettingsPanel : SettingsPanelWithRememberCheckbox<PdfSettings>
     public PdfSettingsPanel(IFormBase form, DialogHelper dialogHelper) : base(form)
     {
         _defaultFilePath = new(form, dialogHelper) { PdfOnly = true };
+        _compat.Items =
+        [
+            PdfCompat.Default, PdfCompat.PdfA1B, PdfCompat.PdfA2B, PdfCompat.PdfA2U, PdfCompat.PdfA3B,
+            PdfCompat.PdfA3U
+        ];
         _compat.Format = compat => compat switch
         {
             PdfCompat.Default => UiStrings.Default,
             PdfCompat.PdfA1B => "PDF/A-1b",
             PdfCompat.PdfA2B => "PDF/A-2b",
+            PdfCompat.PdfA2U => "PDF/A-2u",
             PdfCompat.PdfA3B => "PDF/A-3b",
             PdfCompat.PdfA3U => "PDF/A-3u",
             _ => throw new ArgumentException()
@@ -96,7 +103,10 @@ internal class PdfSettingsPanel : SettingsPanelWithRememberCheckbox<PdfSettings>
             ),
             L.GroupBox(
                 UiStrings.Compatibility,
-                _compat
+                L.Column(
+                    _compat,
+                    _allowJbig2
+                )
             )
         );
     }
@@ -110,6 +120,10 @@ internal class PdfSettingsPanel : SettingsPanelWithRememberCheckbox<PdfSettings>
                 SkipSavePrompt = _skipSavePrompt.IsChecked(),
                 SinglePagePdfs = _singlePagePdfs.IsChecked(),
                 FlattenPdfPagesBeforeOcr = _flattenPdfPagesBeforeOcr.IsChecked(),
+                Compression = Config.Get(c => c.PdfSettings.Compression) with
+                {
+                    AllowJbig2 = _allowJbig2.IsChecked()
+                },
                 Metadata = new PdfMetadata
                 {
                     Title = _title.Text,
@@ -141,6 +155,7 @@ internal class PdfSettingsPanel : SettingsPanelWithRememberCheckbox<PdfSettings>
             _skipSavePrompt.Checked = value.SkipSavePrompt;
             _singlePagePdfs.Checked = value.SinglePagePdfs;
             _flattenPdfPagesBeforeOcr.Checked = value.FlattenPdfPagesBeforeOcr;
+            _allowJbig2.Checked = value.Compression.AllowJbig2;
             _title.Text = value.Metadata.Title;
             _author.Text = value.Metadata.Author;
             _subject.Text = value.Metadata.Subject;

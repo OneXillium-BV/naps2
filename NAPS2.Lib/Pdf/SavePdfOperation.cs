@@ -94,7 +94,7 @@ internal class SavePdfOperation : OperationBase
                             await WaitForFileNotInUse(currentFileName) &&
                             await _pdfExporter.Export(currentFileName, imagesForFile,
                                 new PdfExportParams(pdfSettings.Metadata.Substitute(_nameManager, context),
-                                    pdfSettings.Encryption, pdfSettings.Compat)
+                                    pdfSettings.Encryption, pdfSettings.Compat, pdfSettings.Compression)
                                 {
                                     FlattenPdfPagesBeforeOcr = pdfSettings.FlattenPdfPagesBeforeOcr
                                 }, ocrParams, progress),

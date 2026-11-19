@@ -293,7 +293,8 @@ public class BatchScanPerformer : IBatchScanPerformer
                         _config.Get(c => c.PdfSettings.Metadata).Substitute(_nameManager,
                             NameContext.FromSaveParams(saveParams)),
                         _config.Get(c => c.PdfSettings.Encryption),
-                        _config.Get(c => c.PdfSettings.Compat))
+                        _config.Get(c => c.PdfSettings.Compat),
+                        _config.Get(c => c.PdfSettings.Compression))
                     {
                         FlattenPdfPagesBeforeOcr = _config.Get(c => c.PdfSettings.FlattenPdfPagesBeforeOcr)
                     };

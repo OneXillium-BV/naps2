@@ -780,6 +780,10 @@ internal class AutomatedScanning
             {
                 compat = PdfCompat.PdfA2B;
             }
+            else if (t.EndsWith("a2u", StringComparison.InvariantCultureIgnoreCase))
+            {
+                compat = PdfCompat.PdfA2U;
+            }
             else if (t.EndsWith("a3b", StringComparison.InvariantCultureIgnoreCase))
             {
                 compat = PdfCompat.PdfA3B;
@@ -790,6 +794,14 @@ internal class AutomatedScanning
             }
         }
         _config.Run.Set(c => c.PdfSettings.Compat, compat);
+
+        // Like metadata and encryption, compression comes from the command line only, so the output doesn't depend on
+        // settings saved in the GUI
+        _config.Run.Set(c => c.PdfSettings.Compression, new PdfCompression
+        {
+            AllowJbig2 = !_options.DisableJbig2,
+            JpegQuality = _options.PdfJpegQuality
+        });
 
         _actualOutputPaths = [];
         foreach (var (fileContents, scanIndex) in _scanList.Select((x, i) => (x, i)))

@@ -200,8 +200,19 @@ public class AutomatedScanningOptions
     public bool UseSavedEncryptConfig { get; set; }
 
     [Option("pdfcompat",
-        HelpText = "The standard to use for the generated PDF. Possible values: default, A1-b, A2-b, A3-b, A3-u")]
+        HelpText = "The standard to use for the generated PDF. Possible values: default, A1-b, A2-b, A2-u, A3-b, A3-u")]
     public string? PdfCompat { get; set; }
+
+    [Option("pdfjpegquality",
+        HelpText = "Store color and grayscale pages in the generated PDF as JPEG at this quality (1-100), also when " +
+                   "the source is lossless (e.g. PNG). Black and white pages keep JBIG2/CCITT compression and " +
+                   "unmodified JPEG files are embedded as-is.")]
+    public int? PdfJpegQuality { get; set; }
+
+    [Option("disablejbig2",
+        HelpText = "Don't use JBIG2 compression for black and white pages in the generated PDF (CCITT G4 is used " +
+                   "instead).")]
+    public bool DisableJbig2 { get; set; }
 
     #endregion
 
